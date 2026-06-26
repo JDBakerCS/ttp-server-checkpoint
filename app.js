@@ -200,3 +200,14 @@ app.listen(8080, () => {
     console.log('Server 8080 is running!!');
 
 })
+
+// Part 4 Explain:
+
+// If I stop and restart node app.js the plants array releaseEvents because it is only stored
+//in memory. 
+
+//If two people send requrest to the same api here while the server is running they will 
+//see the same plant array since both are using the same running servery memory.
+
+//for the data to survive a restart, it would need to live somewhere outside the running server
+//memory, like a database or local file. when the server starts again, it can load the saved data back. 
