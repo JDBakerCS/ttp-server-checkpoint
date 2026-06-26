@@ -3,6 +3,16 @@ const app = express();
 
 app.use(express.json());
 
+function logger(req, res, next) {
+    console.log(req.method, req.url);
+    next();
+}
+app.use(logger);
+
+//Explain: if the middleware is below the routes. it may not run for requests 
+//that already matched a route and sent a response. Express runs middleware
+//and routes from top to bottom 
+
 
 let plants = [
     { id: 1, name: "Snake Plant", type: "Succulent", sunlight: "Low", watered: true },
@@ -14,12 +24,27 @@ let plants = [
 let nextId = 5;
 
 let careNotes = [
-    { id: 1, plantId: 1, text: "Water every 2 weeks" },
-    { id: 2, plantId: 1, text: "Keep away from pets" },
-    { id: 3, plantId: 3, text: "Mist leaves occasionally" },
+    { id: 1, plantId: 1, note: "Water every 2 weeks" },
+    { id: 2, plantId: 1, note: "Keep away from pets" },
+    { id: 3, plantId: 3, note: "Mist leaves occasionally" },
 ];
 
 let nextNoteId = 4;
+
+
+function validatePlant(req, res, next) {
+    const {name, type} = req.body;
+
+    if (!name || !type) {
+        return res.status(404).json({error: "name and type are required"})
+    }
+    next(); 
+}
+
+//Explain: the middleware here is good because it checks the data before the route create something. 
+// if middleware never calls next() and never sends request get stuck. postman keeps waiting because express was never
+//told to continue or finish. 
+
 
 app.get("/api/plants", (req, res, next) => {
     try {
@@ -58,7 +83,7 @@ app.get("/api/plants/:id", async (req, res, next) => {
     }
 })
 
-app.post("/api/plants", (req, res, next) => {
+app.post("/api/plants", validatePlant, (req, res, next) => {
     try {
         const { name, type, sunlight, watered } = req.body;
         const newPlant = {
@@ -113,11 +138,11 @@ app.delete("/api/plants/:id", (req, res, next) => {
 
 app.get("/api/plants/:plantId/notes", (req, res, next) => {
     try {
-        const plantId = Number(req.params.id);
+        const plantId = Number(req.params.plantId);
 
         const foundPlant = plants.find((plant) => plant.id === plantId);
 
-        if (!plant) {
+        if (!foundPlant) {
             return res.status(404).json({error: "Plant Not Found"})
         }
 
@@ -130,11 +155,12 @@ app.get("/api/plants/:plantId/notes", (req, res, next) => {
 })
 app.post("/api/plants/:plantId/notes", (req, res, next) => {
     try {
-        const {text} = req.body;
+        const plantId = Number(req.params.plantId)
+        const {note} = req.body;
         const newNotes = {
             id: nextNoteId,
-            plantId,
-            text,
+            plantId: plantId,
+            note: note,
         }
         nextNoteId++;
         careNotes.push(newNotes);
@@ -143,12 +169,12 @@ app.post("/api/plants/:plantId/notes", (req, res, next) => {
         next(err);
     }
 })
-app.delete("/api/plants/:plantId/notes", (req, res, next) => {
+app.delete("/api/notes/:id", (req, res, next) => {
     try {
         const notesId = Number(req.params.id);
         const plantId = Number(req.params.id);
 
-        const notesIndex = careNotes.findIndex((note) => note.id === notesId && note.plantId ===plantId);
+        const notesIndex = careNotes.findIndex((note) => note.id === notesId);
 
         if (notesIndex === -1) {
             return res.status(404).json({error: "thouith spilt thine tea"})
@@ -161,8 +187,14 @@ app.delete("/api/plants/:plantId/notes", (req, res, next) => {
 })
 
 
+app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(500).json({error: "something went wrong on the server"})
+})
 
-
+// Explain: Express knows this is error-handling middleware because it has four
+// parameters: err, req, res, next. The first parameter receives the error that
+// was passed from next(err).
 
 app.listen(8080, () => {
     console.log('Server 8080 is running!!');
